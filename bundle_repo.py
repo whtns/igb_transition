@@ -2,7 +2,8 @@
 
 File selection comes from `git ls-files`, not a filesystem walk, so the bundle
 contains exactly what is committed: no `.pixi/` environment, no gitignored
-operational config, no local logs.
+operational config, no local logs. Repository plumbing that git does track,
+such as `.github/`, is filtered out separately via EXCLUDE_PREFIXES.
 """
 
 import subprocess
@@ -10,6 +11,10 @@ import sys
 from pathlib import Path
 
 VALID_EXTENSIONS = {'.py', '.sh', '.md', '.txt', '.yaml', '.yml', '.json', '.R'}
+
+# Tracked paths under these prefixes are repository plumbing, not source
+# material for the knowledge base.
+EXCLUDE_PREFIXES = ('.github/',)
 
 OUTPUT_NAME = "bcl_conversion_knowledge_base.txt"
 
@@ -39,6 +44,8 @@ def main() -> int:
 
     with output_file.open("w", encoding="utf-8") as out:
         for name in tracked_files(root):
+            if name.startswith(EXCLUDE_PREFIXES):
+                continue
             file_path = root / name
             if file_path.suffix not in VALID_EXTENSIONS or file_path == output_file:
                 continue
