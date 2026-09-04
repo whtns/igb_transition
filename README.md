@@ -42,6 +42,8 @@ pixi run dry-run             # preview what would run
 pixi run all                 # full workflow (snakemake --cores 8)
 pixi run convert output/lane1
 pixi run publish NovaSeqx xR101   # mirror finished run to the share + resend emails
+pixi run masking-sweep 39 22 17   # one deliverable set per alternative R2 masking
+pixi run masking-sweep-report     # compare those variants against the baseline lane
 ```
 
 > `pixi run` auto-loads secrets from the shared per-platform `../.env` (a local `./.env`
@@ -272,6 +274,21 @@ snakemake --rulegraph | dot -Tpdf > rulegraph.pdf
 snakemake --dag | dot -Tpdf > dag.pdf
 ```
 
+**Masking sweep for one lane/group** (after the main run finishes that lane — see
+[Advanced Features](#advanced-features)):
+```bash
+pixi run masking-sweep              # default R2 lengths: 39, 22, 17
+pixi run masking-sweep 39 22        # explicit list
+SWEEP_LANE=8 SWEEP_GROUP=1 pixi run masking-sweep 39   # non-default lane/group
+SWEEP_STOP_AFTER_SEED=1 pixi run masking-sweep 39      # build + seed, no pipeline run
+```
+
+**Compare sweep variants against the baseline:**
+```bash
+pixi run masking-sweep-report
+SWEEP_FULL=1 pixi run masking-sweep-report   # prefix-check whole files, not first 1M reads
+```
+
 ## Output Structure
 
 ```
@@ -376,6 +393,35 @@ For OAuth2 (Gmail):
 **Tile-specific processing:**
 - Set `tiles: "1_1101"` in config for subset processing
 - Useful for test runs or debugging
+
+**Masking sweep** (`pixi run masking-sweep`):
+
+Delivers one complete output set per alternative masking of a single lane/group —
+QC, plots, md5s, links and an order report each — without re-running DRAGEN per
+variant. Run it *after* the main run has finished the lane.
+
+```bash
+pixi run masking-sweep            # default variants: R2 39, 22, 17
+pixi run masking-sweep 39 22      # explicit R2 lengths
+pixi run masking-sweep-report     # compare variants against the baseline
+```
+
+- Only valid when the variants differ in the **R2 `Y` length alone** (same R1/I1/I2,
+  same indexes). Then the shorter-R2 FASTQ is an exact prefix of the long-R2 FASTQ,
+  so `seqtk trimfq -L` reproduces what DRAGEN would have written. A variant that
+  changes an index length or R1 needs a real conversion instead.
+- Each variant runs the unmodified pipeline in `sweeps/{library}_L{lane}_R2-{n}/`
+  via `snakemake -d`; the Snakefile is untouched.
+- Delivery folders stay distinct because the variant workbook's `Lab ID` gets an
+  `_R2-{n}` suffix: `LinE_R2-39_0826I-53_xR112_L8_G1`.
+- The `.output` and `.output_rc` trees are seeded from the main run and their
+  `.done` files touched last, so neither `bcl_convert` nor `bcl_convert_rc`
+  re-runs; the script aborts rather than letting DRAGEN start.
+- Variant runs are addressed to the operator (`SWEEP_EMAIL`, default
+  `kstachel@uci.edu`), never the customer. Restore `email_recipient` in that
+  variant's `snakemake_config_project.yaml` before publishing one.
+- Env knobs: `SWEEP_LANE`, `SWEEP_GROUP`, `SWEEP_CORES`, `SWEEP_EMAIL`,
+  `SWEEP_FORCE`, `SWEEP_STOP_AFTER_SEED`.
 
 ## Notes
 

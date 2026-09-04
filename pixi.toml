@@ -64,6 +64,11 @@ convert = "snakemake --cores 8"
 # Publish a finished run: mirror to the share, touch outputs, resend order emails.
 # Extra args pass through to sync_run, e.g. `pixi run publish NovaSeqx xR101`.
 publish = "bash scripts/publish_run.sh"
+# Masking sweep: one full deliverable set per alternative masking of a single
+# lane/group, reusing the main run's conversion. `pixi run masking-sweep 39 22 17`.
+masking-sweep = "bash scripts/masking_sweep.sh"
+# Compare the sweep variants against the baseline lane output.
+masking-sweep-report = "bash scripts/masking_sweep_report.sh"
 # Rule/dependency graphs
 rulegraph = "snakemake --rulegraph | dot -Tpng > rulegraph.png"
 dag = "snakemake --dag | dot -Tpdf > dag.pdf"
